@@ -1,6 +1,7 @@
 (ns chronicle.core
   (:require [chronicle.cli :as chronicle-cli]
             [chronicle.client :as client]
+            [chronicle.seqchecker :as seqchecker]
             [chronicle.util :as util]
             [clojure.tools.logging :refer [info warn error fatal]]
             [jepsen
@@ -54,7 +55,8 @@
                              (checker/compose
                               {:timeline (timeline/html)
                                :linear (checker/linearizable
-                                        {:model (model/cas-register -1)})}))
+                                        {:model (model/cas-register -1)})
+                               :sequential (seqchecker/sequential)}))
                      :perf (checker/perf)})}))
 
 (defn -main
