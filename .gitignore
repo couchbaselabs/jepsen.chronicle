@@ -1,0 +1,17 @@
+/nodes*
+/store
+/chronicle
+
+/target
+/classes
+/checkouts
+pom.xml
+pom.xml.asc
+*.class
+/.lein-*
+/.nrepl-port
+.DS_Store
+.idea/
+couchbase.iml
+couchbase-server*.*
+.eastwood
