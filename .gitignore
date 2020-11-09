@@ -1,6 +1,7 @@
 /nodes*
 /store
 /chronicle
+/resources/.vagrant
 
 /target
 /classes
