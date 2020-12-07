@@ -1,18 +1,19 @@
 (ns chronicle.core
-  (:require [chronicle.cli :as chronicle-cli]
-            [chronicle.client :as client]
-            [chronicle.seqchecker :as seqchecker]
-            [chronicle.util :as util]
+  (:require [chronicle
+             [cli :as chronicle-cli]
+             [client :as client]
+             [seqchecker :as seqchecker]
+             [util :as util]]
             [clojure.tools.logging :refer [info warn error fatal]]
             [jepsen
              [checker :as checker]
              [cli :as cli]
              [db :as db]
+             [generator :as gen]
              [independent :as indep]
              [nemesis :as nemesis]
              [tests :as tests]]
             [jepsen.checker.timeline :as timeline]
-            [jepsen.generator :as gen]
             [jepsen.nemesis.time]
             [knossos.model :as model]))
 
