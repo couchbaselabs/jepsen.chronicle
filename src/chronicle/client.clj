@@ -5,10 +5,13 @@
              [independent :as indep]]))
 
 (defn do-read-op [node op]
-  (let [key (->> op :value first)
-        val (util/key-get node key)
-        ret (indep/tuple key val)]
-    (assoc op :type :ok :value ret)))
+  (try
+    (let [key (->> op :value first)
+          val (util/key-get node key)
+          ret (indep/tuple key val)]
+      (assoc op :type :ok :value ret))
+    (catch Exception e
+      (assoc op :type :fail :error e))))
 
 (defn do-write-op [node op]
   (let [key (->> op :value first)
