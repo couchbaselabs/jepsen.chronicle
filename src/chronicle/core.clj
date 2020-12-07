@@ -63,6 +63,19 @@
 (defn -main
   "Run the test specified by the cli arguments"
   [& args]
+
+  ;; Jepsen's fressian writer crashes the entire process if it encounters something
+  ;; it doesn't know how to log, preventing the results from being analysed. We
+  ;; don't really care about fressian output, so just log a warning and continue
+  (alter-var-root
+   (var jepsen.store/write-fressian!)
+   (fn [real_fressian!]
+     (fn [& args]
+       (try
+         (apply real_fressian! args)
+         (catch Exception e
+           (error "Ignoring exception while attempting to write fressian" e))))))
+
   ;; Parse args and run the test
   (let [testData (cli/single-test-cmd {:test-fn chronicle-test
                                        :opt-spec chronicle-cli/extra-cli-opts})
