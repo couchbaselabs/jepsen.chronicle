@@ -25,7 +25,12 @@
     (teardown! [_ test node] (util/teardown-node))
 
     db/Primary
-    (setup-primary! [_ test node] (util/setup-cluster test node))))
+    (setup-primary! [_ test node] (util/setup-cluster test node))
+
+    db/LogFiles
+    (log-files [_ test node]
+      ["/tmp/chronicle.log"])))
+
 
 ;; Simple test generator until we write real tests
 (defn simple-gen
