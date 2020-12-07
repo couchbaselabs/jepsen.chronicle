@@ -84,10 +84,10 @@
               :content-type :json}))
 
 (defn key-get
-  [node key]
+  [node key consistency]
   (try+
    (-> (format "http://%s:8080/kv/key%s" node key)
-       (http/get)
+       (http/get {:query-params {:consistency consistency}})
        (:body)
        (json/parse-string true)
        (:value))

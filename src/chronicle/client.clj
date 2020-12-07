@@ -4,10 +4,10 @@
              [client :as client]
              [independent :as indep]]))
 
-(defn do-read-op [node op]
+(defn do-read-op [node op consistency]
   (try
     (let [key (->> op :value first)
-          val (util/key-get node key)
+          val (util/key-get node key consistency)
           ret (indep/tuple key val)]
       (assoc op :type :ok :value ret))
     (catch Exception e
@@ -27,7 +27,7 @@
   (setup! [_ _])
   (invoke! [_ test op]
     (case (:f op)
-      :read (do-read-op client-node op)
+      :read (do-read-op client-node op (:consistency test))
       :write (do-write-op client-node op)))
   (close! [_ _])
   (teardown! [_ _]))
