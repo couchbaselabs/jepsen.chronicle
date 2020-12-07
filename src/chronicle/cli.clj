@@ -13,7 +13,7 @@
 
 (def extra-cli-opts
   [[nil "--workload WORKLOAD"
-    "The workload to run"
+    (str "The workload to run. " (jepsen.cli/one-of workload/workloads-map))
     :parse-fn keyword
     :missing (str "--workload " (jepsen.cli/one-of workload/workloads-map))
     :validate [workload/workloads-map (jepsen.cli/one-of workload/workloads-map)]]
@@ -30,9 +30,12 @@
     :default 0
     :parse-fn parse-int]
    [nil "--install SRC_DIR"
-    "Copy the given source directory onto the test nodes and compile it prior to starting the test. If this argument is not provided then a previously compile copy must already be present on the nodes"
+    (str "Copy the given source directory onto the test nodes and compile it prior to "
+         "starting the test. If this argument is not provided then a previously compiled "
+         "copy must already be present on the nodes.")
     :parse-fn util/get-install-package]
    [nil "--consistency CONSISTENCY"
-    "Request the given consistency level when performing read operations"
+    (str "Request the given consistency level when performing read operations. "
+         (jepsen.cli/one-of consistency-levels))
     :default "local"
     :validate [consistency-levels (jepsen.cli/one-of consistency-levels)]]])
