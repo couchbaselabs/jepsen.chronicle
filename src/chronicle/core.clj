@@ -76,6 +76,14 @@
          (catch Exception e
            (error "Ignoring exception while attempting to write fressian" e))))))
 
+  ;; The default resolution of the perf graphs is tiny, so render something
+  ;; bigger to show more detail
+  (alter-var-root
+   (var jepsen.checker.perf/preamble)
+   (fn [preamble]
+     (fn [output-path]
+       (assoc-in (vec (preamble output-path)) [1 5 :xs] '(1800 800)))))
+
   ;; Parse args and run the test
   (let [testData (cli/single-test-cmd {:test-fn chronicle-test
                                        :opt-spec chronicle-cli/extra-cli-opts})
