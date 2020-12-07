@@ -61,7 +61,7 @@
                              (checker/compose
                               {:timeline (timeline/html)
                                :linear (checker/linearizable
-                                        {:model (model/cas-register -1)})
+                                        {:model (model/cas-register :KeyNotFound)})
                                :sequential (seqchecker/sequential)}))
                      :perf (checker/perf)})}))
 

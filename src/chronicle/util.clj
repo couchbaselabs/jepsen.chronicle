@@ -91,5 +91,5 @@
        (:body)
        (json/parse-string true)
        (:value))
-   ;; Return -1 if the key doesn't exist
-   (catch [:status 404] _ -1)))
+   ;; Return :KeyNotFound if the key doesn't exist
+   (catch [:status 404] _ :KeyNotFound)))

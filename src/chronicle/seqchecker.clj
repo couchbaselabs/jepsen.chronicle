@@ -213,7 +213,7 @@
         ;; Loop over all observed operations to build a single-order that obeys
         ;; PRAM and RVal
         (loop [thread-histories (group-by :process history)
-               register-value :nil]
+               register-value :KeyNotFound]
           ;; Are there any ops left?
           (if-not (every? empty? (vals thread-histories))
             ;; Determine which op to serialize next
