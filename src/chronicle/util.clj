@@ -17,6 +17,17 @@
     (.deleteOnExit temp-file)
     (.getCanonicalPath ^File temp-file)))
 
+(defn start-daemon
+  []
+  (cu/start-daemon!
+   {:logfile "/tmp/chronicle.log"
+    :pidfile "/tmp/chronicle.pid"
+    :chdir "/home/vagrant/chronicle"}
+   "start_cluster"
+   :--app :chronicled
+   :--num-nodes 1
+   :--hostname c/*host*))
+
 (defn setup-node
   [test]
   (info "Setting up node" c/*host*)
@@ -26,14 +37,7 @@
     (info "Building chronicle on" c/*host*)
     (c/cd "/home/vagrant/chronicle" (c/exec :rebar3 :as :examples :compile)))
   (info "Starting daemon on" c/*host*)
-  (cu/start-daemon!
-   {:logfile "/tmp/chronicle.log"
-    :pidfile "/tmp/chronicle.pid"
-    :chdir "/home/vagrant/chronicle"}
-   "start_cluster"
-   :--app :chronicled
-   :--num-nodes 1
-   :--hostname c/*host*)
+  (start-daemon)
   (Thread/sleep 5000))
 
 (defn teardown-node
@@ -43,18 +47,29 @@
   ;; Use ssh* since we want to ignore non-zero exit codes here
   (c/ssh* {:cmd "pkill -9 -f start_cluster"})
   (c/ssh* {:cmd "pkill -9 -f erlang"})
-  (c/exec :rm :-rf "/tmp/chronicle.*")
+  (c/exec :rm :-rf "/tmp/chronicle.log")
   (c/exec :rm :-rf "/home/vagrant/chronicle/cluster"))
+
+(defn add-node
+  [rest-target node]
+  (http/post (str "http://" rest-target ":8080/config/addnode")
+             {:body (str "\"chronicle_0@" node "\"")
+              :content-type :json
+              :throw-entire-message? true}))
+
+(defn remove-node
+  [rest-target node]
+  (http/post (str "http://" rest-target ":8080/config/removenode")
+             {:body (str "\"chronicle_0@" node "\"")
+              :content-type :json
+              :throw-entire-message? true}))
 
 (defn setup-cluster
   [test primary_node]
   (http/get (str "http://" primary_node ":8080/config/provision"))
   (doseq [node (:nodes test)]
     (if (not= node primary_node)
-      (http/post (str "http://" primary_node ":8080/config/addnode")
-                 {:body (str "\"chronicle_0@" node "\"")
-                  :content-type :json
-                  :throw-entire-message? true}))))
+      (add-node primary_node node))))
 
 (defn key-put
   [node key value]
