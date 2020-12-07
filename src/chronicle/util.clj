@@ -51,15 +51,10 @@
   (http/get (str "http://" primary_node ":8080/config/provision"))
   (doseq [node (:nodes test)]
     (if (not= node primary_node)
-      (try+
-       (http/post (str "http://" primary_node ":8080/config/addnode")
-                  {:body (str "\"chronicle_0@" node "\"")
-                   :content-type :json
-                   :throw-entire-message? true})
-       (catch [:status 400] {:keys [body]} ;; FIXME: Is this correct?
-         (if (= body "nodes added")
-           (warn "Ignoring spurious(?) HTTP/400 on node add")
-           (throw+)))))))
+      (http/post (str "http://" primary_node ":8080/config/addnode")
+                 {:body (str "\"chronicle_0@" node "\"")
+                  :content-type :json
+                  :throw-entire-message? true}))))
 
 (defn key-put
   [node key value]
