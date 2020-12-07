@@ -3,7 +3,8 @@
              [cli :as chronicle-cli]
              [client :as client]
              [seqchecker :as seqchecker]
-             [util :as util]]
+             [util :as util]
+             [workload :as workload]]
             [clojure.tools.logging :refer [info warn error fatal]]
             [jepsen
              [checker :as checker]
@@ -31,19 +32,6 @@
     (log-files [_ test node]
       ["/tmp/chronicle.log"])))
 
-
-;; Simple test generator until we write real tests
-(defn simple-gen
-  []
-  (indep/concurrent-generator
-   5 ; Threads per key
-   (range)
-   (fn [_]
-     (gen/phases
-      (gen/once {:f :write :value 0 :f-type :put})
-      (gen/mix [(gen/repeat {:f :read})
-                (map (fn [x] {:f :write :value x :f-type :post}) (drop 1 (range)))])))))
-
 ;; Testcase setup
 (defn chronicle-test
   "Run the test"
@@ -53,9 +41,7 @@
          {:name "Chronicle"
           :pure-generators true
           :db (chronicle-db)
-          :nemesis nemesis/noop
           :client (client/base-client)
-          :generator (gen/clients (gen/time-limit 30 (simple-gen)))
           :checker (checker/compose
                     {:indep (indep/checker
                              (checker/compose
@@ -63,7 +49,8 @@
                                :linear (checker/linearizable
                                         {:model (model/cas-register :KeyNotFound)})
                                :sequential (seqchecker/sequential)}))
-                     :perf (checker/perf)})}))
+                     :perf (checker/perf)})}
+         (workload/get-workload opts)))
 
 (defn -main
   "Run the test specified by the cli arguments"

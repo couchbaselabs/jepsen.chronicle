@@ -1,5 +1,7 @@
 (ns chronicle.cli
-  (:require [chronicle.util :as util]
+  (:require [chronicle
+             [util :as util]
+             [workload :as workload]]
             [jepsen.cli :as jepsen.cli]))
 
 (def consistency-levels #{"local" "leader" "quorum"})
@@ -11,7 +13,10 @@
 
 (def extra-cli-opts
   [[nil "--workload WORKLOAD"
-    "The workload to run"]
+    "The workload to run"
+    :parse-fn keyword
+    :missing (str "--workload " (jepsen.cli/one-of workload/workloads-map))
+    :validate [workload/workloads-map (jepsen.cli/one-of workload/workloads-map)]]
    [nil "--doc-threads THREADS"
     "Number of worker threads per key"
     :default 3
