@@ -27,5 +27,5 @@ Note that for subsequent runs the `--install ./chronicle` parameter can be omitt
 
 After the tests are completed the vagrant VMs can be torn down with
 ```
-./provision.sh --type=vagrant --action=destroy-all
+./provision.sh --action=destroy-all
 ```
