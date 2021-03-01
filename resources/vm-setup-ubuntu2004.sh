@@ -11,4 +11,4 @@ chown vagrant:vagrant /home/vagrant/.erlang.cookie
 chmod 400 /home/vagrant/.erlang.cookie
 
 # Force git to use https over ssh
-git config --global url."https://github.com/".insteadOf git@github.com:
+sudo -u vagrant git config --global url."https://github.com/".insteadOf git@github.com:
