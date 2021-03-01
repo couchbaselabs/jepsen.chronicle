@@ -2,6 +2,7 @@
   (:require [chronicle
              [cli :as chronicle-cli]
              [client :as client]
+             [sanitychecker :as sanitychecker]
              [seqchecker :as seqchecker]
              [util :as util]
              [workload :as workload]]
@@ -49,6 +50,7 @@
                                :linear (checker/linearizable
                                         {:model (model/cas-register :KeyNotFound)})
                                :sequential (seqchecker/sequential)}))
+                     :sanity (sanitychecker/sanity-check)
                      :perf (checker/perf)})}
          (workload/get-workload opts)))
 
