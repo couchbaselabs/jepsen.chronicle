@@ -6,10 +6,12 @@
              [seqchecker :as seqchecker]
              [util :as util]
              [workload :as workload]]
+            [clojure.string :as str]
             [clojure.tools.logging :refer [info warn error fatal]]
             [jepsen
              [checker :as checker]
              [cli :as cli]
+             [control :as c]
              [db :as db]
              [generator :as gen]
              [independent :as indep]
@@ -31,7 +33,9 @@
 
     db/LogFiles
     (log-files [_ test node]
-      ["/tmp/chronicle.log"])))
+      (str/split-lines (c/exec :find
+                               "/home/vagrant/chronicle/cluster"
+                               :-type :f)))))
 
 ;; Testcase setup
 (defn chronicle-test
