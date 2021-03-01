@@ -38,4 +38,10 @@
     (str "Request the given consistency level when performing read operations. "
          (jepsen.cli/one-of consistency-levels))
     :default "local"
-    :validate [consistency-levels (jepsen.cli/one-of consistency-levels)]]])
+    :validate [consistency-levels (jepsen.cli/one-of consistency-levels)]]
+   [nil "--client-stickiness STICKINESS"
+    "Client stickiness"
+    :default :sticky
+    :parse-fn keyword
+    :validate (let [sticky-levels #{:sticky :any-node :healthy-nodes}]
+                [sticky-levels (jepsen.cli/one-of sticky-levels)])]])

@@ -96,3 +96,18 @@
        (:value))
    ;; Return :KeyNotFound if the key doesn't exist
    (catch [:status 404] _ :KeyNotFound)))
+
+(defn get-nodes-with-status
+  [test node-status]
+  (->> @(:membership test)
+       (group-by val)
+       (node-status)
+       (map first)))
+
+(defn get-node-with-status
+  [test node-status]
+  (rand-nth (get-nodes-with-status test node-status)))
+
+(defn get-one-ok-node
+  [test]
+  (get-node-with-status test :ok))
