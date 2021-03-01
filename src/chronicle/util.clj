@@ -13,7 +13,7 @@
   [package]
   (assert (.isDirectory (io/file package)))
   (let [temp-file (File/createTempFile "chronicle" ".tar")]
-    (shell/sh "tar" "-cf" (.getCanonicalPath ^File temp-file) "./chronicle")
+    (shell/sh "tar" "-cf" (.getCanonicalPath ^File temp-file) package)
     (.deleteOnExit temp-file)
     (.getCanonicalPath ^File temp-file)))
 
