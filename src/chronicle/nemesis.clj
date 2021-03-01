@@ -12,9 +12,11 @@
     targeter
     (fn start [t n]
       (c/exec :pkill :-SIGSTOP :beam.smp :-P (c/lit "$(< /tmp/chronicle.pid)"))
+      (swap! (:membership t) assoc n :frozen)
       :paused)
     (fn stop [t n]
       (c/exec :pkill :-SIGCONT :beam.smp :-P (c/lit "$(< /tmp/chronicle.pid)"))
+      (swap! (:membership t) assoc n :ok)
       :resumed))))
 
 (defn node-crash
@@ -25,9 +27,11 @@
     (fn start [t n]
       (c/exec :pkill :-SIGKILL :-P (c/lit "$(< /tmp/chronicle.pid)"))
       (cu/stop-daemon! "/tmp/chonicle.pid")
+      (swap! (:membership t) assoc n :killed)
       :killed)
     (fn stop [t n]
       (util/start-daemon)
+      (swap! (:membership t) assoc n :ok)
       :restarted))))
 
 (defn node-removal
@@ -40,8 +44,10 @@
       ;; return multiple nodes. We need some state tracking mechanism to cover
       ;; that case...
       (util/remove-node (some #(if (not= % n) %) (:nodes t)) n)
+      (swap! (:membership t) assoc n :removed)
       :removed)
     (fn stop [t n]
       ;; FIXME: Same multi-node disruption issue applies here
       (util/add-node (some #(if (not= % n) %) (:nodes t)) n)
+      (swap! (:membership t) assoc n :ok)
       :added))))

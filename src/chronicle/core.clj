@@ -47,6 +47,7 @@
           :pure-generators true
           :db (chronicle-db)
           :client (client/base-client)
+          :membership (atom (zipmap (:nodes opts) (repeat :ok)))
           :checker (checker/compose
                     {:indep (indep/checker
                              (checker/compose
