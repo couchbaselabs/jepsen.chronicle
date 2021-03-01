@@ -75,22 +75,25 @@
       (add-node primary_node node))))
 
 (defn key-put
-  [node key value]
+  [cm node key value]
   (http/put (format "http://%s:8080/kv/key%s" node key)
             {:body (str value)
-             :content-type :json}))
+             :content-type :json
+             :connection-manager cm}))
 
 (defn key-post
-  [node key value]
+  [cm node key value]
   (http/post (format "http://%s:8080/kv/key%s" node key)
              {:body (str value)
-              :content-type :json}))
+              :content-type :json
+              :connection-manager cm}))
 
 (defn key-get
-  [node key consistency]
+  [cm node key consistency]
   (try+
    (-> (format "http://%s:8080/kv/key%s" node key)
-       (http/get {:query-params {:consistency consistency}})
+       (http/get {:connection-manager cm
+                  :query-params {:consistency consistency}})
        (:body)
        (json/parse-string true)
        (:value))
