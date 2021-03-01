@@ -62,7 +62,10 @@
   (http/post (str "http://" rest-target ":8080/config/removenode")
              {:body (str "\"chronicle_0@" node "\"")
               :content-type :json
-              :throw-entire-message? true}))
+              :throw-entire-message? true})
+  (Thread/sleep 3000)
+  (http/post (str "http://" node ":8080/node/wipe")
+             {:throw-entire-message? true}))
 
 (defn setup-cluster
   [test primary_node]
