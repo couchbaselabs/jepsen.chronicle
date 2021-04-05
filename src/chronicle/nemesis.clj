@@ -5,49 +5,70 @@
              [nemesis :as nemesis]]
             [jepsen.control.util :as cu]))
 
+(defn- update-states
+  [test nodes state]
+  (let [kvpair (interleave nodes (repeat state))]
+    (apply swap! (:membership test) assoc kvpair)))
+
 (defn node-freeze
-  ([] (node-freeze rand-nth))
-  ([targeter]
-   (nemesis/node-start-stopper
-    targeter
-    (fn start [t n]
-      (c/exec :pkill :-SIGSTOP :beam.smp :-P (c/lit "$(< /tmp/chronicle.pid)"))
-      (swap! (:membership t) assoc n :frozen)
-      :paused)
-    (fn stop [t n]
-      (c/exec :pkill :-SIGCONT :beam.smp :-P (c/lit "$(< /tmp/chronicle.pid)"))
-      (swap! (:membership t) assoc n :ok)
-      :resumed))))
+  []
+  (reify nemesis/Nemesis
+    (setup! [this test] this)
+    (invoke! [this test op]
+      (case (:f op)
+        :freeze (do
+                  (c/on-many
+                   (:value op)
+                   (c/exec :pkill :-SIGSTOP :beam.smp
+                           :-P (c/lit "$(< /tmp/chronicle.pid)")))
+                  (update-states test (:value op) :frozen)
+                  op)
+        :resume (do
+                  (c/on-many
+                   (:value op)
+                   (c/exec :pkill :-SIGCONT :beam.smp
+                           :-P (c/lit "$(< /tmp/chronicle.pid)")))
+                  (update-states test (:value op) :ok)
+                  op)))
+    (teardown! [this test])))
 
 (defn node-crash
-  ([] (node-crash rand-nth))
-  ([targeter]
-   (nemesis/node-start-stopper
-    targeter
-    (fn start [t n]
-      (c/exec :pkill :-SIGKILL :-P (c/lit "$(< /tmp/chronicle.pid)"))
-      (cu/stop-daemon! "/tmp/chonicle.pid")
-      (swap! (:membership t) assoc n :killed)
-      :killed)
-    (fn stop [t n]
-      (util/start-daemon)
-      (swap! (:membership t) assoc n :ok)
-      :restarted))))
+  []
+  (reify nemesis/Nemesis
+    (setup! [this test] this)
+    (invoke! [this test op]
+      (case (:f op)
+        :crash (do
+                 (c/on-many
+                  (:value op)
+                  (c/exec :pkill :-SIGKILL
+                          :-P (c/lit "$(< /tmp/chronicle.pid)"))
+                  (cu/stop-daemon! "/tmp/chonicle.pid"))
+                 (update-states test (:value op) :killed)
+                 op)
+        :restart (do
+                   (c/on-many (:value op) (util/start-daemon))
+                   (update-states test (:value op) :ok)
+                   op)))
+    (teardown! [this test])))
 
 (defn node-removal
-  ([] (node-removal rand-nth))
-  ([targeter]
-   (nemesis/node-start-stopper
-    targeter
-    (fn start [t n]
-      ;; FIXME/TODO: The following will occasionally break if targeter can
-      ;; return multiple nodes. We need some state tracking mechanism to cover
-      ;; that case...
-      (util/remove-node (some #(if (not= % n) %) (:nodes t)) n)
-      (swap! (:membership t) assoc n :removed)
-      :removed)
-    (fn stop [t n]
-      ;; FIXME: Same multi-node disruption issue applies here
-      (util/add-node (some #(if (not= % n) %) (:nodes t)) n)
-      (swap! (:membership t) assoc n :ok)
-      :added))))
+  []
+  (reify nemesis/Nemesis
+    (setup! [this test] this)
+    (invoke! [this test op]
+      (case (:f op)
+        :remove (let [call-node (util/get-one-ok-node test)]
+                  (util/remove-nodes call-node (:value op))
+                  (update-states test (:value op) :removed)
+                  (assoc op :call-node call-node))
+        :wipe (do
+                (doseq [node (:value op)]
+                  (util/wipe-node node))
+                (update-states test (:value op) :wiped)
+                op)
+        :join (let [call-node (util/get-one-ok-node test)]
+                (util/add-nodes call-node (:value op))
+                (update-states test (:value op) :ok)
+                (assoc op :call-node call-node))))
+    (teardown! [this test])))

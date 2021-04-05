@@ -2,6 +2,7 @@
   (:require [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]
+            [clojure.string :as string]
             [clojure.tools.logging :refer [info warn error fatal]]
             [clj-http.client :as http]
             [jepsen.control :as c]
@@ -50,29 +51,40 @@
   (c/exec :rm :-rf "/tmp/chronicle.log")
   (c/exec :rm :-rf "/home/vagrant/chronicle/cluster"))
 
-(defn add-node
-  [rest-target node]
+(defn format-nodes
+  [nodes]
+  (if (coll? nodes)
+    (->> nodes
+         (map #(str "\"chronicle_0@" % "\""))
+         (string/join ",")
+         (format "[%s]"))
+    (str "\"chronicle_0@" nodes "\"")))
+
+(defn add-nodes
+  [rest-target nodes]
   (http/post (str "http://" rest-target ":8080/config/addnode")
-             {:body (str "\"chronicle_0@" node "\"")
+             {:body (format-nodes nodes)
               :content-type :json
               :throw-entire-message? true}))
 
-(defn remove-node
-  [rest-target node]
+(defn remove-nodes
+  [rest-target nodes]
   (http/post (str "http://" rest-target ":8080/config/removenode")
-             {:body (str "\"chronicle_0@" node "\"")
+             {:body (format-nodes nodes)
               :content-type :json
-              :throw-entire-message? true})
-  (Thread/sleep 3000)
+              :throw-entire-message? true}))
+
+(defn wipe-node
+  [node]
   (http/post (str "http://" node ":8080/node/wipe")
              {:throw-entire-message? true}))
 
 (defn setup-cluster
   [test primary_node]
   (http/get (str "http://" primary_node ":8080/config/provision"))
-  (doseq [node (:nodes test)]
-    (if (not= node primary_node)
-      (add-node primary_node node))))
+  (->> (:nodes test)
+       (remove #(= primary_node %))
+       (add-nodes primary_node)))
 
 (defn key-put
   [cm node key value]
