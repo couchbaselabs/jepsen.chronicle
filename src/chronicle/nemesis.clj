@@ -1,5 +1,6 @@
 (ns chronicle.nemesis
   (:require [chronicle.util :as util]
+            [clojure.set :as set]
             [jepsen
              [control :as c]
              [nemesis :as nemesis]]
@@ -70,5 +71,12 @@
         :join (let [call-node (util/get-one-ok-node test)]
                 (util/add-nodes call-node (:value op))
                 (update-states test (:value op) :ok)
-                (assoc op :call-node call-node))))
+                (assoc op :call-node call-node))
+        :failover (let [all-nodes (set (:nodes test))
+                        remove-nodes (set (:value op))
+                        keep-nodes (set/difference all-nodes remove-nodes)
+                        call-node (rand-nth (seq keep-nodes))]
+                    (util/failover-nodes call-node keep-nodes)
+                    (update-states test (:value op) :failed-over)
+                    (assoc op :call-node call-node))))
     (teardown! [this test])))

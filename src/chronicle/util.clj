@@ -74,6 +74,13 @@
               :content-type :json
               :throw-entire-message? true}))
 
+(defn failover-nodes
+  [rest-target keep-nodes]
+  (http/post (str "http://" rest-target ":8080/config/failover")
+             {:body (format-nodes keep-nodes)
+              :content-type :json
+              :throw-entire-message? true}))
+
 (defn wipe-node
   [node]
   (http/post (str "http://" node ":8080/node/wipe")
