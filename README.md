@@ -21,11 +21,11 @@ git clone https://github.com/couchbase/chronicle.git chronicle
 
 You can then invoke leiningen to run a test
 ```
-lein trampoline run test --nodes-file ./nodes --username vagrant --password vagrant --concurrency 30 --workload register --install ./chronicle
+lein trampoline run test --nodes-file ./nodes --username vagrant --password vagrant --concurrency 30 --time-limit 30 --workload register --install ./chronicle
 ```
 Note that for subsequent runs the `--install ./chronicle` parameter can be omitted to avoid recompiling chronicle on each run. The --workload controls which nemesis is applied to the nodes, see the help text under `lein run test --help` for the full list of options.
 
 After the tests are completed the vagrant VMs can be torn down with
 ```
-./provision.sh --type=vagrant --action=destroy-all
+./provision.sh --action=destroy-all
 ```
