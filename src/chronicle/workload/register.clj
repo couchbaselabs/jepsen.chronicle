@@ -8,4 +8,6 @@
 (defn register-workload
   [opts]
   {:nemesis nemesis/noop
-   :generator (gen/clients (gen/time-limit 45 (workload-util/client-gen opts)))})
+   :generator (->> (workload-util/client-gen opts)
+                   (gen/clients)
+                   (gen/time-limit (:time-limit opts)))})
