@@ -16,25 +16,3 @@
   [opts]
   (let [workloadfn (workloads-map (:workload opts))]
     (workloadfn opts)))
-
-;; (defn nemesis-gen
-;;   "DUMMY PLACEHOLDER: TODO"
-;;   [opts]
-;;   [(gen/sleep 5)
-;;    {:type :info :f :start}
-;;    (gen/sleep 5)
-;;    {:type :info :f :stop}
-;;    (gen/sleep 10)
-;;    {:type :info :f :start}
-;;    (gen/sleep 5)
-;;    {:type :info :f :stop}
-;;    (gen/sleep 5)])
-
-;; (defn get-workload
-;;   "DUMMYFN"
-;;   [opts]
-;;   ;; FIXME FIXME
-;;   {;:nemesis (nemesis/node-removal)
-;;    ;:nemesis nil ;(jepnemesis/partition-random-node)
-;;    :generator (gen/clients (gen/time-limit 45 (client-gen opts)))})
-;;                            ;;(nemesis-gen nil))})
