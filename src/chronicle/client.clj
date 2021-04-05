@@ -13,7 +13,11 @@
          ret (indep/tuple key val)]
      (assoc op :type :ok :node node :value ret))
    ;; Read ops are idempotent so we can safely fail on any exception, but
-   ;; we still want to parse reponse codes to avoid cluttering the test log
+   ;; we still want to parse exceptions to avoid cluttering the test log
+   (catch java.net.ConnectException e
+     (assoc op :type :fail :node node :error (.getMessage e) :exception e))
+   (catch org.apache.http.NoHttpResponseException e
+     (assoc op :type :fail :node node :error :NoHttpResponse :exception e))
    (catch [:status 400] e
      (assoc op :type :fail :node node :error :HTTP400 :exception e))
    (catch [:status 500] e
@@ -29,6 +33,12 @@
        :put (util/key-put cm node key val)
        :post (util/key-post cm node key val))
      (assoc op :type :ok :node node)
+     ;; If we never even connected the op definitely didn't logically happen
+     (catch java.net.ConnectException e
+       (assoc op :type :fail :node node :error (.getMessage e) :exception e))
+     ;; Indeterminate if we simply didn't get a response
+     (catch org.apache.http.NoHttpResponseException e
+       (assoc op :type :info :node node :error :NoHttpResponse :exception e))
      ;; HTTP/400 responses mean the op definitely didn't take place
      (catch [:status 400] e
        (assoc op :type :fail :node node :error :HTTP400 :exception e))
