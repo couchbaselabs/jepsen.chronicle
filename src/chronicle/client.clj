@@ -9,9 +9,13 @@
 (defn do-read-op [cm node op consistency]
   (try+
    (let [key (->> op :value first)
-         val (util/key-get cm node key consistency)
-         ret (indep/tuple key val)]
-     (assoc op :type :ok :node node :value ret))
+         req (future (util/key-get cm node key consistency))
+         timeout? (= :timeout (deref req 3000 :timeout))]
+     (when timeout?
+       (future-cancel req))
+     (if-not timeout?
+       (assoc op :type :ok :node node :value (indep/tuple key @req))
+       (assoc op :type :fail :node node :error :Timeout)))
    ;; Read ops are idempotent so we can safely fail on any exception, but
    ;; we still want to parse exceptions to avoid cluttering the test log
    (catch java.net.ConnectException e
@@ -29,10 +33,15 @@
   (let [key (->> op :value first)
         val (->> op :value second)]
     (try+
-     (case (:f-type op)
-       :put (util/key-put cm node key val)
-       :post (util/key-post cm node key val))
-     (assoc op :type :ok :node node)
+     (let [req (future (case (:f-type op)
+                         :put (util/key-put cm node key val)
+                         :post (util/key-post cm node key val)))
+           timeout? (= :timeout (deref req 3000 :timeout))]
+       (when timeout?
+         (future-cancel req))
+       (if-not timeout?
+         (assoc op :type :ok :node node)
+         (assoc op :type :info :node node :error :Timeout)))
      ;; If we never even connected the op definitely didn't logically happen
      (catch java.net.ConnectException e
        (assoc op :type :fail :node node :error (.getMessage e) :exception e))
