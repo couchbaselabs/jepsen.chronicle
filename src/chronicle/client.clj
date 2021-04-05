@@ -8,18 +8,18 @@
 
 (defn do-read-op [cm node op consistency]
   (try+
-    (let [key (->> op :value first)
-          val (util/key-get cm node key consistency)
-          ret (indep/tuple key val)]
-      (assoc op :type :ok :node node :value ret))
-    ;; Read ops are idempotent so we can safely fail on any exception, but
-    ;; we still want to parse reponse codes to avoid cluttering the test log
-    (catch [:status 400] e
-      (assoc op :type :fail :node node :error :HTTP400 :exception e))
-    (catch [:status 500] e
-      (assoc op :type :fail :node node :error :HTTP500 :exception e))
-    (catch Exception e
-      (assoc op :type :fail :node node :error e))))
+   (let [key (->> op :value first)
+         val (util/key-get cm node key consistency)
+         ret (indep/tuple key val)]
+     (assoc op :type :ok :node node :value ret))
+   ;; Read ops are idempotent so we can safely fail on any exception, but
+   ;; we still want to parse reponse codes to avoid cluttering the test log
+   (catch [:status 400] e
+     (assoc op :type :fail :node node :error :HTTP400 :exception e))
+   (catch [:status 500] e
+     (assoc op :type :fail :node node :error :HTTP500 :exception e))
+   (catch Exception e
+     (assoc op :type :fail :node node :error e))))
 
 (defn do-write-op [cm node op]
   (let [key (->> op :value first)
