@@ -6,16 +6,11 @@
              [independent :as indep]]
             [slingshot.slingshot :refer [try+]]))
 
-(defn do-read-op [cm node op consistency]
+(defn read-op-worker [cm node op consistency]
   (try+
    (let [key (->> op :value first)
-         req (future (util/key-get cm node key consistency))
-         timeout? (= :timeout (deref req 3000 :timeout))]
-     (when timeout?
-       (future-cancel req))
-     (if-not timeout?
-       (assoc op :type :ok :node node :value (indep/tuple key @req))
-       (assoc op :type :fail :node node :error :Timeout)))
+         val (util/key-get cm node key consistency)]
+     (assoc op :type :ok :node node :value (indep/tuple key val)))
    ;; Read ops are idempotent so we can safely fail on any exception, but
    ;; we still want to parse exceptions to avoid cluttering the test log
    (catch java.net.ConnectException e
@@ -29,19 +24,23 @@
    (catch Exception e
      (assoc op :type :fail :node node :error e))))
 
-(defn do-write-op [cm node op]
+(defn do-read-op [cm node op consistency]
+  (let [req (future (read-op-worker cm node op consistency))
+        timeout? (= :timeout (deref req 3000 :timeout))]
+    (if timeout?
+      (do
+        (future-cancel req)
+        (assoc op :type :fail :node node :error :Timeout))
+      @req)))
+
+(defn write-op-worker [cm node op]
   (let [key (->> op :value first)
         val (->> op :value second)]
     (try+
-     (let [req (future (case (:f-type op)
-                         :put (util/key-put cm node key val)
-                         :post (util/key-post cm node key val)))
-           timeout? (= :timeout (deref req 3000 :timeout))]
-       (when timeout?
-         (future-cancel req))
-       (if-not timeout?
-         (assoc op :type :ok :node node)
-         (assoc op :type :info :node node :error :Timeout)))
+     (case (:f-type op)
+       :put (util/key-put cm node key val)
+       :post (util/key-post cm node key val))
+     (assoc op :type :ok :node node)
      ;; If we never even connected the op definitely didn't logically happen
      (catch java.net.ConnectException e
        (assoc op :type :fail :node node :error (.getMessage e) :exception e))
@@ -54,6 +53,15 @@
      ;; HTTP/500 responses indicate an ambiguous operation
      (catch [:status 500] e
        (assoc op :type :info :node node :error :HTTP500 :exception e)))))
+
+(defn do-write-op [cm node op]
+  (let [req (future (write-op-worker cm node op))
+        timeout? (= :timeout (deref req 3000 :timeout))]
+    (if timeout?
+      (do
+        (future-cancel req)
+        (assoc op :type :info :node node :error :Timeout))
+      @req)))
 
 (defrecord chronicle-client [client-node conn-manager]
   client/Client
