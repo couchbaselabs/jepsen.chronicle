@@ -1,6 +1,7 @@
 (ns chronicle.nemesis
   (:require [chronicle.util :as util]
             [clojure.set :as set]
+            [clojure.tools.logging :refer [info warn error fatal]]
             [jepsen
              [control :as c]
              [nemesis :as nemesis]]
@@ -80,3 +81,55 @@
                     (update-states test (:value op) :failed-over)
                     (assoc op :call-node call-node))))
     (teardown! [this test])))
+
+(defn disk-nemesis
+  []
+  (reify nemesis/Nemesis
+    (setup! [this test]
+      (if-not (:requires-vdisk test)
+        (throw (RuntimeException.
+                (str "Workloads using the disk nemesis must declare "
+                     ":requires-vdisk in the test map"))))
+      this)
+    (invoke! [this test op]
+      (case (:f op)
+        :fail-disk
+        (do (c/on-many (:value op)
+                       (c/su
+                        (c/exec :dmsetup :wipe_table :vdisk :--noflush :--nolockfs)))
+            (update-states test (:value op) :disk-failure)
+            op)
+
+        :drop-cache
+        (do (c/on-many (:value op)
+                       (c/su
+                        (c/exec :echo "3" :> "/proc/sys/vm/drop_caches")))
+            op)
+
+        :recover-disk
+        (do (c/on-many (:value op)
+                       (info "Stopping node")
+                       (util/stop-node)
+                       (c/su
+                        (info "Unmounting")
+                        (c/exec :umount "/dev/mapper/vdisk")
+                        (info "Setting new table")
+                        (c/exec :dmsetup :load :vdisk :--table
+                                (c/lit (str "'0 2097152 linear "
+                                            (util/get-vdisk-loop-device)
+                                            " 0'")))
+                        (info "Resuming disk")
+                        (c/exec :dmsetup :resume :vdisk)
+                        (info "Remounting disk")
+                        (c/exec :mount "/dev/mapper/vdisk"
+                                "/home/vagrant/chronicle/cluster"))
+                       (info "Restarting daemon")
+                       (util/start-daemon))
+            (update-states test (:value op) :ok)
+            op)))
+    (teardown! [this test]
+      ;; Attempt to recover the any failed disks so that we can get logs
+      (let [damaged (util/get-nodes-with-status test :disk-failure)]
+        (when-not (empty? damaged)
+          (info "Attempting disk recovery on nodes" damaged)
+          (nemesis/invoke! this test {:f :recover-disk :value damaged}))))))

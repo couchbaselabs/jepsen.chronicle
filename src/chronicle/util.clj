@@ -7,6 +7,7 @@
             [clj-http.client :as http]
             [jepsen.control :as c]
             [jepsen.control.util :as cu]
+            [jepsen.util :as ju]
             [slingshot.slingshot :refer [try+ throw+]])
   (:import java.io.File))
 
@@ -29,6 +30,20 @@
    :--num-nodes 1
    :--hostname c/*host*))
 
+(defn stop-node
+  []
+  (ju/meh (c/exec :pkill :-P (c/lit "$(</tmp/chronicle.pid)")))
+  ;; Wait 1s after the above SIGTERM before forcibly SIGKILL any remaining
+  ;; processes
+  (Thread/sleep 1000)
+  (c/ssh* {:cmd "pkill -9 -f start_cluster"})
+  (c/ssh* {:cmd "pkill -9 -f erlang"})
+  (c/exec :rm :-f "/tmp/chronicle.pid"))
+
+(defn get-vdisk-loop-device
+  []
+  (c/su (c/exec :losetup :-l "|" :grep :-e "chronicle-disk" "|" :cut :-f "1" :-d (c/lit "' '"))))
+
 (defn setup-node
   [test]
   (info "Setting up node" c/*host*)
@@ -37,6 +52,17 @@
     (cu/install-archive! "file:///tmp/chronicle.tar" "/home/vagrant/chronicle")
     (info "Building chronicle on" c/*host*)
     (c/cd "/home/vagrant/chronicle" (c/exec :rebar3 :as :examples :compile)))
+  (when (:requires-vdisk test)
+    (info "Preparing virtual disk")
+    (c/su
+     (c/exec :fallocate :-l "1G" "/tmp/chronicle-disk.img")
+     (let [loop-device (c/exec :losetup :-f :--show "/tmp/chronicle-disk.img")]
+       (c/exec :dmsetup :create :vdisk :--table
+               (c/lit (str "'0 2097152 linear " loop-device " 0'"))))
+     (c/exec :mkfs.xfs "/dev/mapper/vdisk")
+     (c/exec :mkdir :-p "/home/vagrant/chronicle/cluster")
+     (c/exec :mount "/dev/mapper/vdisk" "/home/vagrant/chronicle/cluster")
+     (c/exec :chown :vagrant "/home/vagrant/chronicle/cluster")))
   (info "Starting daemon on" c/*host*)
   (start-daemon)
   (Thread/sleep 5000))
@@ -48,8 +74,13 @@
   ;; Use ssh* since we want to ignore non-zero exit codes here
   (c/ssh* {:cmd "pkill -9 -f start_cluster"})
   (c/ssh* {:cmd "pkill -9 -f erlang"})
-  (c/exec :rm :-rf "/tmp/chronicle.log")
-  (c/exec :rm :-rf "/home/vagrant/chronicle/cluster"))
+  (c/exec :rm :-f "/tmp/chronicle.log")
+  (c/su
+   (ju/meh (c/exec :umount "/dev/mapper/vdisk"))
+   (ju/meh (c/exec :dmsetup :remove :vdisk))
+   (ju/meh (c/exec :losetup :-d (get-vdisk-loop-device)))
+   (c/exec :rm :-f "/tmp/chronicle-disk.img")
+   (c/exec :rm :-rf "/home/vagrant/chronicle/cluster")))
 
 (defn format-nodes
   [nodes]

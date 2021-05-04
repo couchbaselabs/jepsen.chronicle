@@ -33,9 +33,12 @@
 
     db/LogFiles
     (log-files [_ test node]
-      (str/split-lines (c/exec :find
-                               "/home/vagrant/chronicle/cluster"
-                               :-type :f)))))
+      (try
+        (str/split-lines (c/exec :find
+                                 "/home/vagrant/chronicle/cluster"
+                                 :-type :f))
+        (catch Exception e
+          (error "Encountered exception while trying to get log files:" e))))))
 
 ;; Testcase setup
 (defn chronicle-test
