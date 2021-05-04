@@ -5,7 +5,8 @@
             [chronicle.workload.add-remove :refer [add-remove-workload]]
             [chronicle.workload.partition :refer [partition-workload]]
             [chronicle.workload.mixed :refer [mixed-workload]]
-            [chronicle.workload.failover :refer [failover-workload]]))
+            [chronicle.workload.failover :refer [failover-workload]]
+            [chronicle.workload.disk :refer [disk-workload]]))
 
 (def workloads-map
   {:register register-workload
@@ -14,6 +15,7 @@
    :addremove add-remove-workload
    :partition partition-workload
    :mixed mixed-workload
+   :disk disk-workload
    :failover failover-workload})
 
 (defn get-workload
