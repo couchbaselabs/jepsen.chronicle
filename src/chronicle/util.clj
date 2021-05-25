@@ -183,16 +183,17 @@
                    ops))))
 
 (defn get-nodes-with-status
-  [test node-status]
-  (->> @(:membership test)
-       (group-by val)
-       (node-status)
-       (map first)))
+  [test select-status]
+  (keep (fn [[node status]] (if (contains? status select-status) node))
+        @(:membership test)))
 
-(defn get-node-with-status
-  [test node-status]
-  (rand-nth (get-nodes-with-status test node-status)))
+(defn get-ok-nodes
+  [test]
+  (->> @(:membership test)
+       (keep (fn [[k v]] (if (empty? v) k)))))
 
 (defn get-one-ok-node
   [test]
-  (get-node-with-status test :ok))
+  (->> @(:membership test)
+       (keep (fn [[k v]] (if (empty? v) k)))
+       (rand-nth)))

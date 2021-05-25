@@ -50,7 +50,7 @@
           :pure-generators true
           :db (chronicle-db)
           :client (client/base-client)
-          :membership (atom (zipmap (:nodes opts) (repeat :ok)))
+          :membership (atom (zipmap (:nodes opts) (repeat #{})))
           :checker (case (:client-type opts)
                      :reg-gen
                      (checker/compose

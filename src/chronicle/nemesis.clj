@@ -9,9 +9,12 @@
             [jepsen.control.util :as cu]))
 
 (defn- update-states
-  [test nodes state]
-  (let [kvpair (interleave nodes (repeat state))]
-    (apply swap! (:membership test) assoc kvpair)))
+  "Update the test membership status atom. For each node in nodes, update
+  it's status set to include or remove the listed status keywords"
+  [test nodes action-fn & states]
+  (swap! (:membership test)
+         (partial reduce #(apply update %1 %2 action-fn states))
+         nodes))
 
 (defn node-freeze
   []
@@ -24,14 +27,14 @@
                    (:value op)
                    (c/exec :pkill :-SIGSTOP :beam.smp
                            :-P (c/lit "$(< /tmp/chronicle.pid)")))
-                  (update-states test (:value op) :frozen)
+                  (update-states test (:value op) conj :frozen)
                   op)
         :resume (do
                   (c/on-many
                    (:value op)
                    (c/exec :pkill :-SIGCONT :beam.smp
                            :-P (c/lit "$(< /tmp/chronicle.pid)")))
-                  (update-states test (:value op) :ok)
+                  (update-states test (:value op) disj :frozen)
                   op)))
     (teardown! [this test])))
 
@@ -47,11 +50,11 @@
                   (c/exec :pkill :-SIGKILL
                           :-P (c/lit "$(< /tmp/chronicle.pid)"))
                   (cu/stop-daemon! "/tmp/chonicle.pid"))
-                 (update-states test (:value op) :killed)
+                 (update-states test (:value op) conj :killed)
                  op)
         :restart (do
                    (c/on-many (:value op) (util/start-daemon))
-                   (update-states test (:value op) :ok)
+                   (update-states test (:value op) disj :killed)
                    op)))
     (teardown! [this test])))
 
@@ -63,23 +66,23 @@
       (case (:f op)
         :remove (let [call-node (util/get-one-ok-node test)]
                   (util/remove-nodes call-node (:value op))
-                  (update-states test (:value op) :removed)
+                  (update-states test (:value op) conj :removed)
                   (assoc op :call-node call-node))
         :wipe (do
                 (doseq [node (:value op)]
                   (util/wipe-node node))
-                (update-states test (:value op) :wiped)
+                (update-states test (:value op) conj :wiped)
                 op)
         :join (let [call-node (util/get-one-ok-node test)]
                 (util/add-nodes call-node (:value op))
-                (update-states test (:value op) :ok)
+                (update-states test (:value op) disj :removed :wiped)
                 (assoc op :call-node call-node))
         :failover (let [all-nodes (set (:nodes test))
                         remove-nodes (set (:value op))
                         keep-nodes (set/difference all-nodes remove-nodes)
                         call-node (rand-nth (seq keep-nodes))]
                     (util/failover-nodes call-node keep-nodes)
-                    (update-states test (:value op) :failed-over)
+                    (update-states test (:value op) conj :removed)
                     (assoc op :call-node call-node))))
     (teardown! [this test])))
 
@@ -98,7 +101,7 @@
         (do (c/on-many (:value op)
                        (c/su
                         (c/exec :dmsetup :wipe_table :vdisk :--noflush :--nolockfs)))
-            (update-states test (:value op) :disk-failure)
+            (update-states test (:value op) conj :disk-failure)
             op)
 
         :drop-cache
@@ -126,7 +129,7 @@
                                 "/home/vagrant/chronicle/cluster"))
                        (info "Restarting daemon")
                        (util/start-daemon))
-            (update-states test (:value op) :ok)
+            (update-states test (:value op) disj :disk-failure)
             op)))
     (teardown! [this test]
       ;; Attempt to recover the any failed disks so that we can get logs
@@ -148,15 +151,13 @@
               partitions (conj (partition 1 isolate-nodes) other-nodes)
               grudge (nemesis/complete-grudge partitions)]
           (net/drop-all! test grudge)
-          (update-states test (:value op) :partitioned)
+          (update-states test (:value op) conj :partitioned)
           op)
 
         :heal-network
         (do
           (net/heal! (:net test) test)
-          ;; This potentialy interferes with other disruptions, but we need to
-          ;; rework the membership atom to fix this
-          (update-states test (:nodes test) :ok)
+          (update-states test (:nodes test) disj :partitioned)
           op)))
     (teardown! [this test]
       ;; Heal network during teardown to avoid leaving test nodes broken

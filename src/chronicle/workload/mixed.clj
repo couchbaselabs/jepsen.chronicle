@@ -10,7 +10,7 @@
 
 (defn nemesis-gen
   [test ctx]
-  (let [ok-nodes (util/get-nodes-with-status test :ok)
+  (let [ok-nodes (util/get-ok-nodes test)
         ok-count (count ok-nodes)
 
         test-nodes   (count (:nodes test))
@@ -21,18 +21,18 @@
         actions (keep
                  (fn [[node status]]
                    (case status
-                     :ok (if can-disrupt
+                     #{} (if can-disrupt
                            {:type :info
                             :value [node]
                             :f (rand-nth [:remove :crash :freeze])})
 
                      ;; Repair Removal
-                     :removed {:type :info :value [node] :f :wipe}
-                     :wiped {:type :info :value [node] :f :join}
+                     #{:removed} {:type :info :value [node] :f :wipe}
+                     #{:removed :wiped} {:type :info :value [node] :f :join}
 
                      ;; Repair crash and freeze
-                     :killed {:type :info :value [node] :f :restart}
-                     :frozen {:type :info :value [node] :f :resume}))
+                     #{:killed} {:type :info :value [node] :f :restart}
+                     #{:frozen} {:type :info :value [node] :f :resume}))
                  @(:membership test))]
     (if (empty? actions)
       (throw+ {:error "No valid actions?"
