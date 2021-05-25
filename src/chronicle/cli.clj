@@ -44,4 +44,18 @@
     :default :sticky
     :parse-fn keyword
     :validate (let [sticky-levels #{:sticky :any-node :healthy-nodes}]
-                [sticky-levels (jepsen.cli/one-of sticky-levels)])]])
+                [sticky-levels (jepsen.cli/one-of sticky-levels)])]
+   [nil "--client-type CLIENT-TYPE"
+    "Set the type of client operations to be performed"
+    :default :reg-gen
+    :parse-fn keyword
+    :validate (let [client-types #{:reg-gen :txn-gen}]
+                [client-types (jepsen.cli/one-of client-types)])]
+   [nil "--txn-keys KEYS"
+    "Number of keys transactions can act upon"
+    :default 10
+    :parse-fn parse-int]
+   [nil "--txn-size SIZE"
+    "Number of sub-operations in each transaction"
+    :default 5
+    :parse-fn parse-int]])

@@ -51,15 +51,26 @@
           :db (chronicle-db)
           :client (client/base-client)
           :membership (atom (zipmap (:nodes opts) (repeat :ok)))
-          :checker (checker/compose
-                    {:indep (indep/checker
-                             (checker/compose
-                              {:timeline (timeline/html)
-                               :linear (checker/linearizable
-                                        {:model (model/cas-register :KeyNotFound)})
-                               :sequential (seqchecker/sequential)}))
-                     :sanity (sanitychecker/sanity-check)
-                     :perf (checker/perf)})}
+          :checker (case (:client-type opts)
+                     :reg-gen
+                     (checker/compose
+                      {:indep (indep/checker
+                               (checker/compose
+                                {:timeline (timeline/html)
+                                 :linear (checker/linearizable
+                                          {:model (model/cas-register :KeyNotFound)})
+                                 :sequential (seqchecker/sequential)}))
+                       :sanity (sanitychecker/sanity-check)
+                       :perf (checker/perf)})
+
+                     :txn-gen
+                     (checker/compose
+                      {:linear (checker/linearizable
+                                {:model (model/multi-register
+                                         (zipmap (range 30)
+                                                 (repeat :KeyNotFound)))})
+                       :sanity (sanitychecker/sanity-check)
+                       :perf (checker/perf)}))}
          (workload/get-workload opts)))
 
 (defn -main

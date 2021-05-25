@@ -63,6 +63,31 @@
         (assoc op :type :info :node node :error :Timeout))
       @req)))
 
+;; Dummy txn worker that sequentially performs the subops. This obviously fails
+;; even the most trivial consistenct models, replace this with the real
+;; transactions API once it is available.
+(defn txn-op-worker [cm node op consistency]
+  (let [ret (mapv (fn do-txn-subop [subop]
+                    (case (first subop)
+                      :read (let [key (get subop 1)
+                                  val (util/key-get cm node key consistency)]
+                              [:read key val])
+                      :write (let [key (get subop 1)
+                                   val (get subop 2)]
+                               (util/key-post cm node key val)
+                               [:write key val])))
+                  (:value op))]
+    (assoc op :type :ok :node node :value ret)))
+
+(defn do-txn-op [cm node op consistency]
+  (let [req (future (txn-op-worker cm node op consistency))
+        timeout? (= :timeout (deref req 3000 :timeout))]
+    (if timeout?
+      (do
+        (future-cancel req)
+        (assoc :type :info :node node :error :Timeout))
+      @req)))
+
 (defrecord chronicle-client [client-node conn-manager]
   client/Client
   (open! [this test node]
@@ -75,6 +100,7 @@
                  :any-node (rand-nth (:nodes test))
                  :healthy-nodes (util/get-one-ok-node test))]
       (case (:f op)
+        :txn (do-txn-op conn-manager node op (:consistency test))
         :read (do-read-op conn-manager node op (:consistency test))
         :write (do-write-op conn-manager node op))))
   (close! [_ _]
