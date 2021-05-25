@@ -1,21 +1,22 @@
 (ns chronicle.workload.partition
   (:require [chronicle
+             [nemesis :as nemesis]
+             [util :as util]
              [workload-util :as workload-util]]
             [jepsen
-             [nemesis :as nemesis]
              [generator :as gen]]))
 
-(defn nemesis-gen
-  []
-  [(gen/sleep 5)
-   {:type :info :f :start}
-   (gen/sleep 5)
-   {:type :info :f :stop}
-   (gen/sleep 10)])
+(defn nemesis-gen-cycle-fn
+  [test ctx]
+  (let [node (util/get-one-ok-node test)]
+    [(gen/sleep 10)
+     {:type :info :f :isolate-completely :value [node]}
+     (gen/sleep 10)
+     {:type :info :f :heal-network}]))
 
 (defn partition-workload
   [opts]
-  {:nemesis (nemesis/partition-random-node)
-   :generator (gen/nemesis
-               (nemesis-gen)
-               (gen/time-limit 45 (workload-util/client-gen opts)))})
+  {:nemesis (nemesis/network-partition)
+   :generator (->> (workload-util/client-gen opts)
+                   (gen/nemesis nemesis-gen-cycle-fn)
+                   (gen/time-limit (:time-limit opts)))})

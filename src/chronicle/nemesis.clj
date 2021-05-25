@@ -4,7 +4,8 @@
             [clojure.tools.logging :refer [info warn error fatal]]
             [jepsen
              [control :as c]
-             [nemesis :as nemesis]]
+             [nemesis :as nemesis]
+             [net :as net]]
             [jepsen.control.util :as cu]))
 
 (defn- update-states
@@ -133,3 +134,30 @@
         (when-not (empty? damaged)
           (info "Attempting disk recovery on nodes" damaged)
           (nemesis/invoke! this test {:f :recover-disk :value damaged}))))))
+
+(defn network-partition
+  []
+  (reify nemesis/Nemesis
+    (setup! [this test] this)
+    (invoke! [this test op]
+      (case (:f op)
+        :isolate-completely
+        (let [isolate-nodes (:value op)
+              other-nodes (set/difference (set (:nodes test))
+                                          (set isolate-nodes))
+              partitions (conj (partition 1 isolate-nodes) other-nodes)
+              grudge (nemesis/complete-grudge partitions)]
+          (net/drop-all! test grudge)
+          (update-states test (:value op) :partitioned)
+          op)
+
+        :heal-network
+        (do
+          (net/heal! (:net test) test)
+          ;; This potentialy interferes with other disruptions, but we need to
+          ;; rework the membership atom to fix this
+          (update-states test (:nodes test) :ok)
+          op)))
+    (teardown! [this test]
+      ;; Heal network during teardown to avoid leaving test nodes broken
+      (net/heal! (:net test) test))))
