@@ -58,4 +58,8 @@
    [nil "--txn-size SIZE"
     "Number of sub-operations in each transaction"
     :default 5
+    :parse-fn parse-int]
+   [nil "--txn-retries RETRIES"
+    "Number of time a transaction that encountered a conflict will get retried"
+    :default 25
     :parse-fn parse-int]])

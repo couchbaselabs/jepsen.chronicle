@@ -150,6 +150,38 @@
    ;; Return :KeyNotFound if the key doesn't exist
    (catch [:status 404] _ :KeyNotFound)))
 
+(defn txn
+  [cm node ops retries consistency]
+  (let [ops-object (mapv
+                    (fn [op]
+                      (case (first op)
+                        :read {:op :get
+                               :key (str (get op 1))}
+                        :write {:op :set
+                                :key (str (get op 1))
+                                :value (get op 2)}))
+                    ops)
+        reply (-> (format "http://%s:8080/kv" node)
+                  (http/post
+                   {:body (json/generate-string ops-object)
+                    :content-type :json
+                    :connection-manager cm
+                    :query-params {:retries retries
+                                   :consistency consistency}})
+                  :body
+                  json/parse-string)]
+    (apply hash-map
+           (mapcat (fn [op]
+                     (case (first op)
+                       :read (let [key (get op 1)
+                                   payload (get reply (str key))
+                                   value (if payload
+                                           (get payload "value")
+                                           :KeyNotFound)]
+                               [key value])
+                       :write []))
+                   ops))))
+
 (defn get-nodes-with-status
   [test node-status]
   (->> @(:membership test)
