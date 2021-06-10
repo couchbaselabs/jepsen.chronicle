@@ -33,26 +33,30 @@
         (assoc op :type :fail :node node :error :Timeout))
       @req)))
 
+(defmacro try-write [node op & body]
+  `(try+
+    ~@body
+    ;; If we never even connected the op definitely didn't logically happen
+    (catch java.net.ConnectException e#
+      (assoc ~op :type :fail :node ~node :error (.getMessage e#) :exception e#))
+    ;; Indeterminate if we simply didn't get a response
+    (catch org.apache.http.NoHttpResponseException e#
+      (assoc ~op :type :info :node ~node :error :NoHttpResponse :exception e#))
+    ;; HTTP/400 responses mean the op definitely didn't take place
+    (catch [:status 400] e#
+      (assoc ~op :type :fail :node ~node :error :HTTP400 :exception e#))
+    ;; HTTP/500 responses indicate an ambiguous operation
+    (catch [:status 500] e#
+      (assoc ~op :type :info :node ~node :error :HTTP500 :exception e#))))
+
 (defn write-op-worker [cm node op]
   (let [key (->> op :value first)
         val (->> op :value second)]
-    (try+
-     (case (:f-type op)
-       :put (util/key-put cm node key val)
-       :post (util/key-post cm node key val))
-     (assoc op :type :ok :node node)
-     ;; If we never even connected the op definitely didn't logically happen
-     (catch java.net.ConnectException e
-       (assoc op :type :fail :node node :error (.getMessage e) :exception e))
-     ;; Indeterminate if we simply didn't get a response
-     (catch org.apache.http.NoHttpResponseException e
-       (assoc op :type :info :node node :error :NoHttpResponse :exception e))
-     ;; HTTP/400 responses mean the op definitely didn't take place
-     (catch [:status 400] e
-       (assoc op :type :fail :node node :error :HTTP400 :exception e))
-     ;; HTTP/500 responses indicate an ambiguous operation
-     (catch [:status 500] e
-       (assoc op :type :info :node node :error :HTTP500 :exception e)))))
+    (try-write node op
+               (case (:f-type op)
+                 :put (util/key-put cm node key val)
+                 :post (util/key-post cm node key val))
+               (assoc op :type :ok :node node))))
 
 (defn do-write-op [cm node op]
   (let [req (future (write-op-worker cm node op))
