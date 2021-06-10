@@ -89,7 +89,7 @@
     (if timeout?
       (do
         (future-cancel req)
-        (assoc :type :info :node node :error :Timeout))
+        (assoc op :type :info :node node :error :Timeout))
       @req)))
 
 (defrecord chronicle-client [client-node conn-manager]
