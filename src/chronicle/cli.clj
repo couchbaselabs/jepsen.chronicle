@@ -37,7 +37,7 @@
    [nil "--consistency CONSISTENCY"
     (str "Request the given consistency level when performing read operations. "
          (jepsen.cli/one-of consistency-levels))
-    :default "local"
+    :default "quorum"
     :validate [consistency-levels (jepsen.cli/one-of consistency-levels)]]
    [nil "--client-stickiness STICKINESS"
     "Client stickiness"
