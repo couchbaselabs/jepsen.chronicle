@@ -6,6 +6,8 @@
              [seqchecker :as seqchecker]
              [util :as util]
              [workload :as workload]]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :refer [info warn error fatal]]
             [jepsen
@@ -73,6 +75,23 @@
                        :perf (checker/perf)}))}
          (workload/get-workload opts)))
 
+(defn chronicle-suite
+  "Run a suite of tests, reading the test parameters from an edn file. Note
+  that this bypasses the cli parser, allowing for arbitrary value injection
+  into the test map where desirable. This does, however, means that values need
+  to be passed pre-parsed."
+  [opts]
+  (->> opts
+       :suite
+       io/reader
+       java.io.PushbackReader.
+       edn/read
+       (map #(merge opts %))
+       (map-indexed (if-not (opts :keep-install)
+                      #(do %2)
+                      #(if (= 0 %1) %2 (dissoc %2 :install))))
+       (map chronicle-test)))
+
 (defn -main
   "Run the test specified by the cli arguments"
   [& args]
@@ -98,7 +117,11 @@
        (assoc-in (vec (preamble output-path)) [1 5 :xs] '(1800 800)))))
 
   ;; Parse args and run the test
-  (let [testData (cli/single-test-cmd {:test-fn chronicle-test
-                                       :opt-spec chronicle-cli/extra-cli-opts})
-        serve (cli/serve-cmd)]
-    (cli/run! (merge testData serve) args)))
+  (cli/run! (merge (cli/single-test-cmd
+                    {:test-fn chronicle-test
+                     :opt-spec chronicle-cli/extra-cli-opts})
+                   (cli/test-all-cmd
+                    {:tests-fn chronicle-suite
+                     :opt-spec chronicle-cli/suite-cli-opts})
+                   (cli/serve-cmd))
+            args))

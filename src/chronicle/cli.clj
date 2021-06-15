@@ -2,6 +2,7 @@
   (:require [chronicle
              [util :as util]
              [workload :as workload]]
+            [clojure.java.io :as io]
             [jepsen.cli :as jepsen.cli]))
 
 (def consistency-levels #{"local" "leader" "quorum"})
@@ -63,3 +64,18 @@
     "Number of time a transaction that encountered a conflict will get retried"
     :default 25
     :parse-fn parse-int]])
+
+(def suite-cli-opts
+  (jepsen.cli/merge-opt-specs
+   extra-cli-opts
+   [[nil "--suite SUITE"
+     "The suite of tesys to run"
+     :missing "A --suite file must be provided when using the test-all command"
+     :validate [#(->> % io/file .exists) "Provided suite file not found"]]
+    [nil "--workload WORKLOAD"
+     "Not used for test-all commad"
+     :default nil
+     :validate [(constantly false) "Workload option is not used for test-all suites"]]
+    [nil "--[no-]keep-install"
+     "Re-use the chronicle build/install from the first test for all subsequent tests"
+     :default true]]))
