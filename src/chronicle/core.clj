@@ -67,7 +67,7 @@
                      (checker/compose
                       {:linear (checker/linearizable
                                 {:model (model/multi-register
-                                         (zipmap (range 30)
+                                         (zipmap (range (:txn-keys opts))
                                                  (repeat :KeyNotFound)))})
                        :sanity (sanitychecker/sanity-check)
                        :perf (checker/perf)}))}
