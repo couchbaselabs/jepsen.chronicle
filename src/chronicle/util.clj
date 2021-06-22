@@ -5,6 +5,7 @@
             [clojure.string :as string]
             [clojure.tools.logging :refer [info warn error fatal]]
             [clj-http.client :as http]
+            [dom-top.core :refer [with-retry]]
             [jepsen.control :as c]
             [jepsen.control.util :as cu]
             [jepsen.util :as ju]
@@ -51,7 +52,17 @@
     (c/upload (:install test) "/tmp/chronicle.tar")
     (cu/install-archive! "file:///tmp/chronicle.tar" "/home/vagrant/chronicle")
     (info "Building chronicle on" c/*host*)
-    (c/cd "/home/vagrant/chronicle" (c/exec :rebar3 :as :examples :compile)))
+    (c/cd "/home/vagrant/chronicle"
+          (with-retry [retries 5]
+            (c/exec :rebar3 :as :examples :compile)
+            (catch Exception e
+              (warn "Error occurred during compilation"
+                    retries
+                    "attempts remaining. Exception was"
+                    e)
+              (if (> retries 0)
+                (retry (dec retries))
+                (throw e))))))
   (when (:requires-vdisk test)
     (info "Preparing virtual disk")
     (c/su
