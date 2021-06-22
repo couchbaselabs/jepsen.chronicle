@@ -21,7 +21,8 @@
              [tests :as tests]]
             [jepsen.checker.timeline :as timeline]
             [jepsen.nemesis.time]
-            [knossos.model :as model]))
+            [knossos.model :as model]
+            [slingshot.slingshot :refer [try+]]))
 
 (defn chronicle-db
   []
@@ -35,12 +36,15 @@
 
     db/LogFiles
     (log-files [_ test node]
-      (try
-        (str/split-lines (c/exec :find
-                                 "/home/vagrant/chronicle/cluster"
-                                 :-type :f))
-        (catch Exception e
-          (error "Encountered exception while trying to get log files:" e))))))
+      (try+
+       (str/split-lines
+        (c/exec :find "/home/vagrant/chronicle/cluster" :-type :f))
+       (catch [:type :jepsen.control/nonzero-exit] e
+         (if (some->> e :err (re-find #"No such file or directory"))
+           (warn "Getting log files failed, log directory doesn't exist?")
+           (error "Encountered exception while trying to get log files:" e)))
+       (catch Exception e
+         (error "Encountered exception while trying to get log files:" e))))))
 
 ;; Testcase setup
 (defn chronicle-test
