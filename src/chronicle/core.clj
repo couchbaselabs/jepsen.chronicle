@@ -52,7 +52,7 @@
   [opts]
   (merge tests/noop-test
          opts
-         {:name "Chronicle"
+         {:name (->> opts :workload name (str "Chronicle-"))
           :pure-generators true
           :db (chronicle-db)
           :client (client/base-client)
