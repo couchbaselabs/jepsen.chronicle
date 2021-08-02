@@ -54,7 +54,7 @@
     (info "Building chronicle on" c/*host*)
     (c/cd "/home/vagrant/chronicle"
           (with-retry [retries 5]
-            (c/exec :rebar3 :as :examples :compile)
+            (c/exec "DEBUG=1" :rebar3 :as :examples :compile)
             (catch Exception e
               (warn "Error occurred during compilation"
                     retries
