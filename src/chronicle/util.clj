@@ -29,7 +29,8 @@
    "start_cluster"
    :--app :chronicled
    :--num-nodes 1
-   :--hostname c/*host*))
+   :--hostname c/*host*)
+  (cu/await-tcp-port 8080))
 
 (defn stop-node
   []
@@ -75,8 +76,7 @@
      (c/exec :mount "/dev/mapper/vdisk" "/home/vagrant/chronicle/cluster")
      (c/exec :chown :vagrant "/home/vagrant/chronicle/cluster")))
   (info "Starting daemon on" c/*host*)
-  (start-daemon)
-  (Thread/sleep 5000))
+  (start-daemon))
 
 (defn teardown-node
   []
