@@ -54,7 +54,7 @@
                  op)
         :restart (do
                    (c/on-many (:value op) (util/start-daemon))
-                   (update-states test (:value op) disj :killed)
+                   (update-states test (:value op) disj :killed :frozen)
                    op)))
     (teardown! [this test])))
 
