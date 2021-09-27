@@ -50,7 +50,7 @@ Each test contains a workload to be run. The workload consists primarily of a ne
 
 Workloads are defined as functions that take the test options map and returns a map of additional elements to merge into the test map. Each workload function is registered in the chronicle.workload/workloads-map such that is can be loaded during test construction.
 
-Currently there are 8 workloads, of which 7 follow a very simply nemesis action pattern targeting a single node at a time:
+Currently there are 9 workloads, of which 7 follow a very simply nemesis action pattern targeting a single node at a time:
 
 * register: No nemesis actions
 * freeze: Freezes then unfreezes single node at a time
@@ -59,6 +59,8 @@ Currently there are 8 workloads, of which 7 follow a very simply nemesis action 
 * partition: Partitions a single node completely then recovers
 * disk: Simulates a disk failure, then stops the node, repairs the disk and restarts
 * failover: Fails over one node, wipes and re-adds it
+
+* majorityfailover: The majority failover workload fails over a majority of nodes, then wipes and re-adds them.
 
 * mixed:
 The mixed workload allows for more interesting behaviour. It currently combines node removal, node crashes, node freezes and network partitions. It can disrupt multiple nodes at the same time, as well as applying multiple failures to a single node. Since it is configured to only disrupt a minority of nodes at a time such that operations can still be processed, this workload must be run with at least 3 nodes, and requires 5 or more for simultaneous failures on multiple nodes.

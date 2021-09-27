@@ -6,6 +6,7 @@
             [chronicle.workload.partition :refer [partition-workload]]
             [chronicle.workload.mixed :refer [mixed-workload]]
             [chronicle.workload.failover :refer [failover-workload]]
+            [chronicle.workload.majority-failover :refer [mfailover-workload]]
             [chronicle.workload.disk :refer [disk-workload]]))
 
 (def workloads-map
@@ -16,7 +17,8 @@
    :partition partition-workload
    :mixed mixed-workload
    :disk disk-workload
-   :failover failover-workload})
+   :failover failover-workload
+   :majorityfailover mfailover-workload})
 
 (defn get-workload
   [opts]
