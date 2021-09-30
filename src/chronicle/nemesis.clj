@@ -97,6 +97,7 @@
       this)
     (invoke! [this test op]
       (case (:f op)
+        ;; Simulate a failed disk (return IO error on all requests)
         :fail-disk
         (do (c/on-many (:value op)
                        (c/su
@@ -104,12 +105,51 @@
             (update-states test (:value op) conj :disk-failure)
             op)
 
+        ;; Simulate a slow disk using the DM Delay taget, see documentation at
+        ;; https://www.kernel.org/doc/html/v5.14/admin-guide/device-mapper/delay.html
+        :slow-disk
+        (do (c/on-many (:value op)
+                       (c/su
+                        (info "Starting slow disk")
+                        (c/exec :dmsetup :suspend :vdisk :--noflush :--nolockfs)
+                        (info "Disk suspended")
+                        (c/exec :dmsetup :reload :vdisk :--table
+                                ;; Delay IO by 50ms
+                                (c/lit (str "'0 2097152 delay "
+                                            (util/get-vdisk-loop-device)
+                                            " 0 50'")))
+                        (info "New table loaded")
+                        (c/exec :dmsetup :resume :vdisk :--noflush :--nolockfs)
+                        (info "Disk resumed")))
+            (update-states test (:value op) conj :disk-failure)
+            op)
+
+        ;; Simulate a failing disk that (sometimes) misbehaves using the DM Flakey target,
+        ;; see documentation at
+        ;; https://www.kernel.org/doc/html/v5.14/admin-guide/device-mapper/dm-flakey.html
+        :flakey-disk
+        (do (c/on-many (:value op)
+                       (c/su
+                        (c/exec :dmsetup :suspend :vdisk :--noflush :--nolockfs)
+                        (c/exec :dmsetup :reload :vdisk :--table
+                                ;; Silently drop writes 50% of the time (1s up/down)
+                                (c/lit (str "'0 2097152 flakey "
+                                            (util/get-vdisk-loop-device)
+                                            " 0 1 1 1 drop_writes'")))
+                        (c/exec :dmsetup :resume :vdisk :--noflush :--nolockfs)))
+            (update-states test (:value op) conj :disk-failure)
+            op)
+
+        ;; Drop caches
         :drop-cache
         (do (c/on-many (:value op)
                        (c/su
                         (c/exec :echo "3" :> "/proc/sys/vm/drop_caches")))
             op)
 
+        ;; Restore a "failed" disk, requires restarting chronicle in order to
+        ;; be able to remount the filesystem, which will otherwise likely be
+        ;; stuck in read-only mode following IO errors
         :recover-disk
         (do (c/on-many (:value op)
                        (info "Stopping node")
@@ -117,6 +157,8 @@
                        (c/su
                         (info "Unmounting")
                         (c/exec :umount "/dev/mapper/vdisk")
+                        (info "Suspending vdisk")
+                        (c/exec :dmsetup :suspend :vdisk)
                         (info "Setting new table")
                         (c/exec :dmsetup :load :vdisk :--table
                                 (c/lit (str "'0 2097152 linear "
@@ -124,9 +166,22 @@
                                             " 0'")))
                         (info "Resuming disk")
                         (c/exec :dmsetup :resume :vdisk)
-                        (info "Remounting disk")
-                        (c/exec :mount "/dev/mapper/vdisk"
-                                "/home/vagrant/chronicle/cluster"))
+                        (try
+                          (info "Remounting disk")
+                          (c/exec :mount "/dev/mapper/vdisk"
+                                  "/home/vagrant/chronicle/cluster")
+                          (catch Exception e
+                            ;; If remounting fails assume this might be due to
+                            ;; a damaged filesystem, and try running xfs_repair
+                            ;; to force log zeroing. Running this blindly is
+                            ;; generally a bad idea and will likely result in a
+                            ;; corrupted filesystem, but that's sort of the
+                            ;; point of the test
+                            (info "Remount failed, attempting FS recovery")
+                            (c/exec :xfs_repair :-L "/dev/mapper/vdisk")
+                            (info "Repair done, remounting")
+                            (c/exec :mount "/dev/mapper/vdisk"
+                                    "/home/vagrant/chronicle/cluster"))))
                        (info "Restarting daemon")
                        (util/start-daemon))
             (update-states test (:value op) disj :disk-failure)
@@ -136,7 +191,10 @@
       (let [damaged (util/get-nodes-with-status test :disk-failure)]
         (when-not (empty? damaged)
           (info "Attempting disk recovery on nodes" damaged)
-          (nemesis/invoke! this test {:f :recover-disk :value damaged}))))))
+          (try
+            (nemesis/invoke! this test {:f :recover-disk :value damaged})
+            (catch Exception e
+              (error "Error attempting disk recovery:" e))))))))
 
 (defn network-partition
   []
