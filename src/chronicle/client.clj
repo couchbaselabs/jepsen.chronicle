@@ -72,9 +72,6 @@
         (assoc op :type :info :node node :error :Timeout))
       @req)))
 
-;; Dummy txn worker that sequentially performs the subops. This obviously fails
-;; even the most trivial consistenct models, replace this with the real
-;; transactions API once it is available.
 (defn txn-op-worker [cm node op retries consistency]
   (try-write node op
              (let [snapshot (util/txn cm node (:value op) retries consistency)
